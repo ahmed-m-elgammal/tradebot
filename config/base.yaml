@@ -30,6 +30,9 @@ risk:
     max_portfolio_heat: 0.10     # 10% total at-risk
     max_drawdown: 0.15           # 15% max drawdown before halt
     daily_loss_limit: 0.03       # 3% daily loss limit
+    max_symbol_exposure: 0.05   # symbol concentration cap
+    max_correlated_exposure: 0.20  # correlated basket cap
+    correlation_threshold: 0.80
 
 strategy:
   mean_reversion:
@@ -38,6 +41,9 @@ strategy:
     rsi_window: 14
     rsi_oversold: 30
     rsi_overbought: 70
+    long_only: true
+    stop_loss_pct: 0.05
+    max_bars_in_trade: 0
 
 backtest:
   initial_capital: 10000

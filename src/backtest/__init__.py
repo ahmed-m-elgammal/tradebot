@@ -12,5 +12,6 @@ Modules:
 from src.backtest.engine import Backtester
 from src.backtest.performance import PerformanceMetrics
 from src.backtest.attribution import AttributionAnalyzer, Trade
+from src.backtest.walk_forward import WalkForwardValidator
 
-__all__ = ['Backtester', 'PerformanceMetrics', 'AttributionAnalyzer', 'Trade']
+__all__ = ['Backtester', 'PerformanceMetrics', 'AttributionAnalyzer', 'Trade', 'WalkForwardValidator']
