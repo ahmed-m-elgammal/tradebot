@@ -62,6 +62,9 @@ class RiskLimitsConfig(BaseModel):
     max_portfolio_heat: float = Field(0.10, ge=0.01, le=0.5, description="Max total portfolio risk")
     max_drawdown: float = Field(0.15, ge=0.05, le=0.5, description="Max drawdown before halt")
     daily_loss_limit: float = Field(0.03, ge=0.01, le=0.2, description="Daily loss limit")
+    max_symbol_exposure: float = Field(0.05, ge=0.01, le=0.5, description="Max exposure per symbol")
+    max_correlated_exposure: float = Field(0.20, ge=0.05, le=1.0, description="Max exposure in correlated basket")
+    correlation_threshold: float = Field(0.8, ge=0.5, le=1.0, description="Correlation threshold for grouping")
 
 
 class RiskConfig(BaseModel):
@@ -76,6 +79,9 @@ class MeanReversionStrategyConfig(BaseModel):
     rsi_window: int = Field(14, ge=2, le=50, description="RSI window")
     rsi_oversold: int = Field(30, ge=10, le=40, description="RSI oversold threshold")
     rsi_overbought: int = Field(70, ge=60, le=90, description="RSI overbought threshold")
+    long_only: bool = Field(True, description="Use long-only lifecycle in Phase 1")
+    stop_loss_pct: float = Field(0.05, ge=0.0, le=0.2, description="Emergency stop loss percentage")
+    max_bars_in_trade: int = Field(0, ge=0, le=10000, description="Time stop in bars, 0 disables")
 
 
 class StrategyConfig(BaseModel):
