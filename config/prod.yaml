@@ -1,0 +1,28 @@
+# Production environment configuration
+environment: prod
+
+logging:
+  level: WARNING
+  console: false
+  format: json  # Structured logging for production
+
+data:
+  ingest:
+    retry:
+      max_attempts: 5  # More retries in production
+      max_delay: 300.0 # Up to 5 minutes
+    rate_limit:
+      calls_per_minute: 50  # Conservative for production
+      burst_size: 5
+
+risk:
+  limits:
+    max_position_size: 0.03      # More conservative: 3%
+    max_portfolio_heat: 0.08     # 8% total at-risk
+    max_drawdown: 0.10           # 10% max drawdown (tighter)
+    daily_loss_limit: 0.02       # 2% daily loss limit
+
+backtest:
+  initial_capital: 100000  # Production capital
+  commission_pct: 0.0015   # 0.15% (realistic broker fees)
+  slippage_pct: 0.003      # 0.3% (conservative slippage)

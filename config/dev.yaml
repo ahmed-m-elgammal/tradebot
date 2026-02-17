@@ -1,0 +1,15 @@
+# Development environment overrides
+environment: dev
+
+logging:
+  level: DEBUG
+  console: true
+  format: text  # Human-readable for development
+
+backtest:
+  initial_capital: 10000  # Smaller capital for testing
+
+data:
+  ingest:
+    retry:
+      max_attempts: 2  # Fail faster in development
