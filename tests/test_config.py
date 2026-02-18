@@ -4,8 +4,6 @@ Unit Tests for Configuration System
 Tests for Pydantic models, config loading, and validation.
 """
 
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 import pytest
 from pydantic import ValidationError

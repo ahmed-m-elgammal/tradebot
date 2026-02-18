@@ -4,8 +4,6 @@ Edge Case and Negative Tests
 Tests for error handling, edge cases, and invalid inputs.
 """
 
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 import pytest
 import pandas as pd

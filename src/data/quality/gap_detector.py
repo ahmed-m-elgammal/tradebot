@@ -7,8 +7,6 @@ Detects gaps in time series data with configurable thresholds.
 import pandas as pd
 from datetime import timedelta
 from typing import List, Dict, Optional
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 from src.config import get_config
 from src.utils.logger import get_logger

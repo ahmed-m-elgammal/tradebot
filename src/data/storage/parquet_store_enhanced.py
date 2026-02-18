@@ -12,8 +12,6 @@ from typing import Optional, Dict
 import hashlib
 import json
 from datetime import datetime
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 from src.config import get_config
 from src.utils.logger import get_logger

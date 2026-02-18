@@ -4,8 +4,6 @@ Full System Integration Test
 Tests complete trading workflow with all components integrated.
 """
 
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 import pandas as pd
 import numpy as np

@@ -4,8 +4,6 @@ Unit Tests for Attribution Module
 Tests for P&L breakdown and attribution analysis.
 """
 
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 import pytest
 import pandas as pd
