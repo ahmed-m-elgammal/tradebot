@@ -7,8 +7,6 @@ Monitors data staleness with configurable thresholds.
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 from src.config import get_config
 from src.utils.logger import get_logger

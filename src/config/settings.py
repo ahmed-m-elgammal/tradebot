@@ -65,6 +65,8 @@ class RiskLimitsConfig(BaseModel):
     max_symbol_exposure: float = Field(0.05, ge=0.01, le=0.5, description="Max exposure per symbol")
     max_correlated_exposure: float = Field(0.20, ge=0.05, le=1.0, description="Max exposure in correlated basket")
     correlation_threshold: float = Field(0.8, ge=0.5, le=1.0, description="Correlation threshold for grouping")
+    max_sector_exposure: float = Field(0.30, ge=0.05, le=1.0, description="Max sector exposure")
+    max_cluster_exposure: float = Field(0.25, ge=0.05, le=1.0, description="Max cluster exposure")
 
 
 class RiskConfig(BaseModel):
@@ -82,6 +84,8 @@ class MeanReversionStrategyConfig(BaseModel):
     long_only: bool = Field(True, description="Use long-only lifecycle in Phase 1")
     stop_loss_pct: float = Field(0.05, ge=0.0, le=0.2, description="Emergency stop loss percentage")
     max_bars_in_trade: int = Field(0, ge=0, le=10000, description="Time stop in bars, 0 disables")
+    atr_stop_mult: float = Field(0.0, ge=0.0, le=10.0, description="ATR multiple for stop placement")
+    volatility_kill_switch: float = Field(0.0, ge=0.0, le=1.0, description="ATR/close threshold to flatten positions")
 
 
 class StrategyConfig(BaseModel):

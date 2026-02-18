@@ -4,8 +4,6 @@ End-to-End Integration Test
 Tests the complete trading system from data ingestion through backtesting.
 """
 
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 import pandas as pd
 import numpy as np

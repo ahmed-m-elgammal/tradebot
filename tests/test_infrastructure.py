@@ -4,8 +4,6 @@ Test Infrastructure Components
 Tests for configuration, logging, retry, and rate limiting.
 """
 
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 import time
 from src.config import load_config, get_config

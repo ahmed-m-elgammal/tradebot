@@ -2,15 +2,6 @@
 Mean Reversion Trading Strategy
 
 Simple mean reversion strategy using Bollinger Bands and RSI.
-
-Entry Logic:
-- BUY when price < lower Bollinger Band AND RSI < oversold threshold
-- Optional SELL when price > upper Bollinger Band AND RSI > overbought threshold
-
-Exit Logic:
-- Exit long when price > middle Bollinger Band OR RSI > overbought
-- Exit short when price < middle Bollinger Band OR RSI < oversold
-- Optional emergency stop loss and max-bars-in-trade timeout
 """
 
 import pandas as pd
@@ -24,56 +15,41 @@ logger = logging.getLogger(__name__)
 
 
 class MeanReversionStrategy(BaseStrategy):
-    """
-    Mean reversion strategy using Bollinger Bands and RSI.
-
-    This strategy assumes that extreme price movements are temporary
-    and price will revert to the mean.
-
-    Configuration:
-        - bollinger_window: Moving average window for Bollinger Bands (default: 20)
-        - bollinger_std: Standard deviations for bands (default: 2.0)
-        - rsi_window: RSI calculation window (default: 14)
-        - rsi_oversold: RSI oversold threshold (default: 30)
-        - rsi_overbought: RSI overbought threshold (default: 70)
-        - long_only: If True, disable short entries (default: True)
-        - stop_loss_pct: Emergency stop loss threshold (default: 0.05)
-        - max_bars_in_trade: Time stop in bars (default: 0 disables)
-    """
+    """Mean reversion strategy using Bollinger Bands and RSI."""
 
     def __init__(self, config: Optional[Dict] = None):
-        """Initialize mean reversion strategy."""
         super().__init__(config)
 
-        # Bollinger Band parameters
         self.bb_window = self.config.get('bollinger_window', 20)
         self.bb_std = self.config.get('bollinger_std', 2.0)
-
-        # RSI parameters
         self.rsi_window = self.config.get('rsi_window', 14)
         self.rsi_oversold = self.config.get('rsi_oversold', 30)
         self.rsi_overbought = self.config.get('rsi_overbought', 70)
 
-        # Lifecycle/risk behavior
         self.long_only = self.config.get('long_only', True)
         self.stop_loss_pct = self.config.get('stop_loss_pct', 0.05)
         self.max_bars_in_trade = self.config.get('max_bars_in_trade', 0)
+        self.atr_stop_mult = self.config.get('atr_stop_mult', 0.0)
+        self.volatility_kill_switch = self.config.get('volatility_kill_switch', 0.0)
 
-        logger.info(f"Initialized {self.name} with:")
-        logger.info(f"  Bollinger: window={self.bb_window}, std={self.bb_std}")
-        logger.info(f"  RSI: window={self.rsi_window}, oversold={self.rsi_oversold}, overbought={self.rsi_overbought}")
-        logger.info(f"  long_only={self.long_only}, stop_loss_pct={self.stop_loss_pct}, max_bars_in_trade={self.max_bars_in_trade}")
+    def fit(self, train_df: pd.DataFrame) -> None:
+        """Calibrate lightweight thresholds using training data in walk-forward."""
+        if train_df.empty or 'close' not in train_df.columns:
+            return
+        ret_std = float(train_df['close'].pct_change().std())
+        if ret_std > 0:
+            # conservative dynamic stop calibration bounded by config default envelope
+            calibrated = min(0.10, max(0.01, ret_std * 6.0))
+            self.stop_loss_pct = calibrated
+
+    def _get_stop_price(self, row: pd.Series, entry_price: float, side: int) -> float:
+        fixed_stop = entry_price * (1 - self.stop_loss_pct) if side == 1 else entry_price * (1 + self.stop_loss_pct)
+        if self.atr_stop_mult > 0 and 'atr' in row and pd.notna(row['atr']):
+            atr_stop = entry_price - self.atr_stop_mult * row['atr'] if side == 1 else entry_price + self.atr_stop_mult * row['atr']
+            return max(fixed_stop, atr_stop) if side == 1 else min(fixed_stop, atr_stop)
+        return fixed_stop
 
     def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Generate deterministic position state using entry/exit transitions.
-
-        Returns:
-            DataFrame with 'signal' column:
-            - 1: Long
-            - -1: Short
-            - 0: Flat
-        """
         df = df.copy()
 
         indicators = TechnicalIndicators(validate_lookahead=False)
@@ -81,6 +57,8 @@ class MeanReversionStrategy(BaseStrategy):
             df = indicators.add_bollinger_bands(df, window=self.bb_window, std=self.bb_std)
         if 'rsi' not in df.columns:
             df = indicators.add_rsi(df, window=self.rsi_window)
+        if 'atr' not in df.columns:
+            df = indicators.add_atr(df)
 
         buy_condition = (df['close'] < df['bb_lower']) & (df['rsi'] < self.rsi_oversold)
         sell_condition = (df['close'] > df['bb_upper']) & (df['rsi'] > self.rsi_overbought)
@@ -88,38 +66,50 @@ class MeanReversionStrategy(BaseStrategy):
         signals = []
         current_position = 0
         entry_price = None
+        stop_price = None
         bars_in_trade = 0
 
         for idx, row in df.iterrows():
-            exit_now = False
+            if self.volatility_kill_switch > 0 and pd.notna(row.get('atr')) and row['close'] > 0:
+                atr_pct = row['atr'] / row['close']
+                if atr_pct >= self.volatility_kill_switch:
+                    current_position = 0
+                    entry_price = None
+                    stop_price = None
+                    bars_in_trade = 0
+                    signals.append(0)
+                    continue
 
+            exit_now = False
             if current_position != 0:
                 bars_in_trade += 1
-
                 if current_position == 1:
                     mean_exit = (row['close'] > row['bb_middle']) or (row['rsi'] > self.rsi_overbought)
-                    stop_exit = entry_price is not None and row['close'] <= entry_price * (1 - self.stop_loss_pct)
+                    stop_exit = stop_price is not None and row['close'] <= stop_price
                     timeout_exit = self.max_bars_in_trade > 0 and bars_in_trade >= self.max_bars_in_trade
                     exit_now = mean_exit or stop_exit or timeout_exit
                 else:
                     mean_exit = (row['close'] < row['bb_middle']) or (row['rsi'] < self.rsi_oversold)
-                    stop_exit = entry_price is not None and row['close'] >= entry_price * (1 + self.stop_loss_pct)
+                    stop_exit = stop_price is not None and row['close'] >= stop_price
                     timeout_exit = self.max_bars_in_trade > 0 and bars_in_trade >= self.max_bars_in_trade
                     exit_now = mean_exit or stop_exit or timeout_exit
 
             if exit_now:
                 current_position = 0
                 entry_price = None
+                stop_price = None
                 bars_in_trade = 0
 
             if current_position == 0:
-                if buy_condition.loc[idx]:
+                if bool(buy_condition.loc[idx]):
                     current_position = 1
-                    entry_price = row['close']
+                    entry_price = float(row['close'])
+                    stop_price = self._get_stop_price(row, entry_price, side=1)
                     bars_in_trade = 0
-                elif (not self.long_only) and sell_condition.loc[idx]:
+                elif (not self.long_only) and bool(sell_condition.loc[idx]):
                     current_position = -1
-                    entry_price = row['close']
+                    entry_price = float(row['close'])
+                    stop_price = self._get_stop_price(row, entry_price, side=-1)
                     bars_in_trade = 0
 
             signals.append(current_position)
@@ -131,7 +121,6 @@ class MeanReversionStrategy(BaseStrategy):
         return df
 
     def get_signal_description(self, row: pd.Series) -> str:
-        """Get detailed description of signal."""
         if row['signal'] == 1:
             return (f"BUY: Price ({row['close']:.2f}) below lower BB ({row['bb_lower']:.2f}), "
                     f"RSI ({row['rsi']:.1f}) oversold (< {self.rsi_oversold})")
@@ -143,7 +132,6 @@ class MeanReversionStrategy(BaseStrategy):
         return "FLAT: No signal"
 
     def get_entry_price_targets(self, row: pd.Series) -> Dict:
-        """Get suggested entry prices and targets."""
         if row['signal'] == 1:
             return {
                 'entry': row['close'],

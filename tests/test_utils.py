@@ -4,8 +4,6 @@ Unit Tests for Utility Modules
 Tests for retry logic, rate limiter, and logger.
 """
 
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 import pytest
 import time

@@ -8,8 +8,6 @@ import ccxt
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, List
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 from src.data.ingest.base_ingestor import BaseIngestor
 from src.data.ingest.validator import DataValidator

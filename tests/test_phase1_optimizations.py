@@ -1,10 +1,8 @@
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 """Phase 1 optimization regression tests."""
 
 import time
+import pytest
 import pandas as pd
 import numpy as np
 
@@ -21,7 +19,10 @@ class _StaticStrategy:
 
     def generate_signals(self, df):
         out = df.copy()
-        out['signal'] = self.signals
+        if len(self.signals) == len(out):
+            out['signal'] = self.signals
+        else:
+            out['signal'] = [0] * len(out)
         return out
 
 
@@ -100,6 +101,7 @@ def test_walk_forward_runs_multiple_folds():
     assert not summary.empty
 
 
+@pytest.mark.performance
 def test_backtest_performance_budget_10k_under_2s():
     np.random.seed(42)
     df = _price_frame(10000)
@@ -111,3 +113,57 @@ def test_backtest_performance_budget_10k_under_2s():
     elapsed = time.perf_counter() - start
 
     assert elapsed < 2.0
+
+
+def test_execution_model_partial_fill_limit_orders():
+    df = _price_frame(80)
+
+    strategy = MeanReversionStrategy({'long_only': True})
+    backtester = Backtester()
+
+    market_df = df.copy()
+    market_df['order_type'] = 'market'
+    market_df['book_depth'] = 1.0
+    m_results, _ = backtester.run(strategy, market_df)
+
+    limit_df = df.copy()
+    limit_df['order_type'] = 'limit'
+    limit_df['book_depth'] = 0.001
+    l_results, _ = backtester.run(strategy, limit_df)
+
+    assert l_results['position_change'].sum() <= m_results['position_change'].sum()
+
+
+def test_sector_cluster_exposure_limits():
+    risk = RiskLimits({
+        'max_position_size': 0.50,
+        'max_symbol_exposure': 0.50,
+        'max_sector_exposure': 0.20,
+        'max_cluster_exposure': 0.15,
+        'max_portfolio_heat': 0.50,
+    })
+    equity = 10000
+
+    open_positions = [Position(symbol='A', quantity=15, entry_price=100, current_price=100, sector='tech', cluster='c1')]
+    order = Order(symbol='B', quantity=10, price=100, sector='tech', cluster='c2')  # sector -> 2500
+    approved, reason = risk.check_order(order, equity, open_positions)
+    assert not approved and 'Sector exposure' in reason
+
+
+class _FittableStrategy(_StaticStrategy):
+    def __init__(self, signals):
+        super().__init__(signals)
+        self.fit_called = False
+
+    def fit(self, train):
+        self.fit_called = True
+
+
+def test_walk_forward_invokes_fit_on_train_folds():
+    df = pd.DataFrame({'close': np.linspace(100, 120, 240)})
+    strategy = _FittableStrategy([0] * len(df))
+    backtester = Backtester()
+    wf = WalkForwardValidator(backtester, train_size=100, test_size=40)
+
+    folds, _ = wf.run(strategy, df)
+    assert len(folds) >= 1

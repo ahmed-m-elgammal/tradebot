@@ -1,8 +1,4 @@
-"""
-Risk Limits
-
-Hard and soft limit enforcement for position sizing and portfolio risk.
-"""
+"""Risk Limits with concentration and cluster controls."""
 
 from typing import Dict, Tuple, Optional, List
 from dataclasses import dataclass
@@ -13,12 +9,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Position:
-    """Represents an open position."""
     symbol: str
     quantity: float
     entry_price: float
     current_price: float
     stop_loss: Optional[float] = None
+    sector: Optional[str] = None
+    cluster: Optional[str] = None
 
     @property
     def value(self) -> float:
@@ -39,11 +36,12 @@ class Position:
 
 @dataclass
 class Order:
-    """Represents a proposed order."""
     symbol: str
     quantity: float
     price: float
     stop_loss: Optional[float] = None
+    sector: Optional[str] = None
+    cluster: Optional[str] = None
 
     @property
     def value(self) -> float:
@@ -65,10 +63,12 @@ class RiskLimits:
         self.max_drawdown = config.get('max_drawdown', 0.15)
         self.daily_loss_limit = config.get('daily_loss_limit', 0.03)
 
-        # New concentration/correlation guards
         self.max_symbol_exposure = config.get('max_symbol_exposure', self.max_position_size)
         self.max_correlated_exposure = config.get('max_correlated_exposure', 0.20)
         self.correlation_threshold = config.get('correlation_threshold', 0.8)
+
+        self.max_sector_exposure = config.get('max_sector_exposure', 0.30)
+        self.max_cluster_exposure = config.get('max_cluster_exposure', 0.25)
 
         self.equity_peak = 0
         self.daily_start_equity = 0
@@ -77,6 +77,11 @@ class RiskLimits:
     def _drawdown(self, current_equity: float) -> float:
         self.equity_peak = max(self.equity_peak, current_equity)
         return (self.equity_peak - current_equity) / self.equity_peak if self.equity_peak > 0 else 0
+
+    def _exposure_by(self, open_positions: List[Position], attr: str, value: Optional[str]) -> float:
+        if value is None:
+            return 0.0
+        return sum(p.value for p in open_positions if getattr(p, attr) == value)
 
     def _symbol_exposure(self, symbol: str, open_positions: List[Position]) -> float:
         return sum(p.value for p in open_positions if p.symbol == symbol)
@@ -87,7 +92,6 @@ class RiskLimits:
                              correlation_map: Optional[Dict[str, Dict[str, float]]] = None) -> float:
         if not correlation_map:
             return 0.0
-
         order_corrs = correlation_map.get(order.symbol, {})
         correlated = 0.0
         for pos in open_positions:
@@ -110,22 +114,33 @@ class RiskLimits:
             return False, (f"Position size ${position_value:.2f} exceeds "
                            f"{self.max_position_size:.1%} limit (${max_position_value:.2f})")
 
-        existing_symbol_exposure = self._symbol_exposure(order.symbol, open_positions)
-        symbol_exposure_new = existing_symbol_exposure + position_value
+        symbol_exposure_new = self._symbol_exposure(order.symbol, open_positions) + position_value
         max_symbol_value = self.max_symbol_exposure * current_equity
         if symbol_exposure_new > max_symbol_value:
             return False, (f"Symbol exposure ${symbol_exposure_new:.2f} exceeds "
                            f"{self.max_symbol_exposure:.1%} limit (${max_symbol_value:.2f})")
 
-        current_risk = sum(p.risk for p in open_positions)
-        new_total_risk = current_risk + order.risk
+        sector_exposure_new = self._exposure_by(open_positions, 'sector', order.sector) + position_value
+        if order.sector is not None:
+            max_sector_value = self.max_sector_exposure * current_equity
+            if sector_exposure_new > max_sector_value:
+                return False, (f"Sector exposure ${sector_exposure_new:.2f} exceeds "
+                               f"{self.max_sector_exposure:.1%} limit (${max_sector_value:.2f})")
+
+        cluster_exposure_new = self._exposure_by(open_positions, 'cluster', order.cluster) + position_value
+        if order.cluster is not None:
+            max_cluster_value = self.max_cluster_exposure * current_equity
+            if cluster_exposure_new > max_cluster_value:
+                return False, (f"Cluster exposure ${cluster_exposure_new:.2f} exceeds "
+                               f"{self.max_cluster_exposure:.1%} limit (${max_cluster_value:.2f})")
+
+        new_total_risk = sum(p.risk for p in open_positions) + order.risk
         max_risk = self.max_portfolio_heat * current_equity
         if new_total_risk > max_risk:
             return False, (f"Portfolio heat ${new_total_risk:.2f} exceeds "
                            f"{self.max_portfolio_heat:.1%} limit (${max_risk:.2f})")
 
-        correlated_exposure = self._correlated_exposure(order, open_positions, correlation_map)
-        correlated_exposure_new = correlated_exposure + position_value
+        correlated_exposure_new = self._correlated_exposure(order, open_positions, correlation_map) + position_value
         max_corr_value = self.max_correlated_exposure * current_equity
         if correlated_exposure_new > max_corr_value:
             return False, (f"Correlated exposure ${correlated_exposure_new:.2f} exceeds "
