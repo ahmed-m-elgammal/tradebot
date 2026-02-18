@@ -1,0 +1,14 @@
+:root {
+  --bg: #0c0f14;
+  --panel: #131a22;
+  --text: #d6e2f0;
+  --critical: #e53935;
+  --warn: #ffb300;
+  --info: #39c0ed;
+  --ok: #2ecc71;
+  --border: #223042;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); }
+button { background: #1a2430; color: var(--text); border: 1px solid var(--border); padding: 6px 10px; cursor: pointer; }
