@@ -7,8 +7,6 @@ Detects price outliers using configurable thresholds.
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Optional
-import sys
-sys.path.insert(0, 'c:\\Users\\A-Dev\\Desktop\\Trading Bot')
 
 from src.config import get_config
 from src.utils.logger import get_logger
