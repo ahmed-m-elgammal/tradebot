@@ -1,0 +1,18 @@
+.layout {
+  display: grid;
+  grid-template-columns: 180px 1fr 300px 320px;
+  grid-template-rows: 44px 1fr 48px;
+  grid-template-areas:
+    "status status status status"
+    "nav main risk alerts"
+    "exec exec exec alerts";
+  height: 100%;
+  gap: 8px;
+  padding: 8px;
+}
+.status { grid-area: status; }
+.nav { grid-area: nav; }
+.main { grid-area: main; }
+.risk { grid-area: risk; }
+.alerts { grid-area: alerts; }
+.exec { grid-area: exec; }

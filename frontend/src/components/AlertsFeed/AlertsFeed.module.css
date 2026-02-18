@@ -1,0 +1,6 @@
+.feed { background: var(--panel); border: 1px solid var(--border); padding: 10px; overflow: auto; }
+.feed ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.feed li { border-left: 3px solid var(--info); padding: 6px; background: #0f141c; }
+.critical { border-left-color: var(--critical); }
+.warn { border-left-color: var(--warn); }
+.info { border-left-color: var(--info); }
